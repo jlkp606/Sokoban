@@ -133,7 +133,7 @@ def taboo_cells(warehouse):
 
     #took this from sokoban.py in the __str__ function
 
-    X,Y = zip(*warehouse.walls) # pythonic version of the above
+    X,Y = zip(*warehouse.walls) 
     x_size, y_size = 1+max(X), 1+max(Y)
     vis = [[" "] * x_size for y in range(y_size)]
 
@@ -213,8 +213,9 @@ class SokobanPuzzle(search.Problem):
             self.goal = goal
 
     def can_move_there(self, state, object, is_worker, direction):
+
         if (direction == 'Right'):
-            # if next space is not a wall---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+            # if next space is not a wall
             if (((object[0]+1, object[1]) not in state.walls) and
             # and not a box
                 (((object[0]+1, object[1]) not in state.boxes))):
@@ -350,27 +351,31 @@ class SokobanPuzzle(search.Problem):
         if action == 'Right':
             if (not self.macro):
                 next_state.worker = (next_state.worker[0]+1, next_state.worker[1])
-            if next_state.worker in next_state.boxes:
-                box_index = next_state.boxes.index(next_state.worker)
-                next_state.boxes[box_index] = ((next_state.worker[0]+1, next_state.worker[1]))
+            for box_index in range(len(next_state.boxes)):
+                if next_state.worker == next_state.boxes[box_index]:
+                    next_state.boxes[box_index] = ((next_state.worker[0]+1, next_state.worker[1]))
+                    break
         elif action == 'Left':
             if (not self.macro):
                 next_state.worker = (next_state.worker[0]-1, next_state.worker[1])
-            if next_state.worker in next_state.boxes:
-                box_index = next_state.boxes.index(next_state.worker)
-                next_state.boxes[box_index] = ((next_state.worker[0]-1, next_state.worker[1]))
+            for box_index in range(len(next_state.boxes)):
+                if next_state.worker == next_state.boxes[box_index]:
+                    next_state.boxes[box_index] = ((next_state.worker[0]-1, next_state.worker[1]))
+                    break
         elif action == 'Up':
             if (not self.macro):
                 next_state.worker = (next_state.worker[0], next_state.worker[1]-1)
-            if next_state.worker in next_state.boxes:
-                box_index = next_state.boxes.index(next_state.worker)
-                next_state.boxes[box_index] = ((next_state.worker[0], next_state.worker[1]-1))
+            for box_index in range(len(next_state.boxes)):
+                if next_state.worker == next_state.boxes[box_index]:
+                    next_state.boxes[box_index] = ((next_state.worker[0], next_state.worker[1]-1))
+                    break
         elif action == 'Down':
             if (not self.macro):
                 next_state.worker = (next_state.worker[0], next_state.worker[1]+1)
-            if next_state.worker in next_state.boxes:
-                box_index = next_state.boxes.index(next_state.worker)
-                next_state.boxes[box_index] = ((next_state.worker[0], next_state.worker[1]+1))
+            for box_index in range(len(next_state.boxes)):
+                if next_state.worker == next_state.boxes[box_index]:
+                    next_state.boxes[box_index] = ((next_state.worker[0], next_state.worker[1]+1))
+                    break
         print(next_state)
         return next_state
         #boxes are resetting to oringinal posistion, once moved they stay there
@@ -425,45 +430,31 @@ class SokobanPuzzle(search.Problem):
 
     def h(self, node):
         if (self.ignore_box):
-            return distance_between_two_points(node.state.worker, self.goal) + (random()/10)
+            return distance_between_two_points(node.state.worker, self.goal) + (random()/100)
         else:
             total_distance = 0
+            current_lowest_box = None
             temp_lowest_distance = None
-            temp_pair = None
-            used_box = []
-            used_target = []
-            distance_list = [(distance_between_two_points(box, target), box, target)
-                for box in set(node.state.boxes) 
-                for target in set(node.state.targets)]
-
-            for box in set(node.state.boxes):
-                for distance, box, target in distance_list:
-                    if (temp_lowest_distance == None) :
+            boxes = node.state.boxes.copy()
+            for target in node.state.targets:
+                for box in boxes:
+                    distance = distance_between_two_points(target, box)
+                    if temp_lowest_distance == None:
                         temp_lowest_distance = distance
-                        temp_pair = (box, target)
-                    elif (distance <= temp_lowest_distance):
-                        temp_lowest_distance = distance
-                        temp_pair = (box, target)
-                
-                if (temp_pair != None):
-                    used_box.append(temp_pair[0])
-                    used_target.append(temp_pair[1])
-                    
-                    total_distance +=  temp_lowest_distance
-                    temp_lowest_distance = None
-
-                    distance_list = [(distance_between_two_points(box, target), box, target)
-                        for box in set(node.state.boxes)
-                        if box not in used_box
-                        for target in set(node.state.targets)
-                        if target not in used_target
-                        ]
-                # add a small random number be because
+                        current_lowest_box = box
+                    else:
+                        if distance < temp_lowest_distance:
+                            temp_lowest_distance = distance 
+                            current_lowest_box = box
+                total_distance += temp_lowest_distance
+                temp_lowest_distance = None
+                boxes.remove(current_lowest_box)
+                # add a small random number  because
                 # in search.py the PriorityQueue doesn't like it 
                 # when two nodes have the same f value 
                 # and it throws an error. So adding a small random number
                 # will give nodes with the same value a random order
-            return total_distance + (random()/10)
+            return total_distance + (random()/100)
 
     #in sokoban.py from Warehouse __str__ method
     def state_to_string(self, state):
@@ -681,8 +672,10 @@ wh.load_warehouse("./warehouses/warehouse_07.txt")
 #taboo_cells(wh)
 
 puzzle = SokobanPuzzle(wh)
+print(taboo_cells(wh))
+print(puzzle.taboo_cells)
 #print(check_elem_action_seq(wh,["Up",'Right','Up','Up','Left','Left','Up']))
-print(solve_sokoban_elem(wh))
+#print(solve_sokoban_elem(wh))
 #print(solve_sokoban_macro(wh))
 #print(wh)
 #print(solve_weighted_sokoban_elem(wh, [1,2,3]))
