@@ -36,9 +36,80 @@ def my_team():
     '''
     return [ (10008195, 'Joshua', 'La') ]
 
+# - - - - - - - - - - My Functions - - - - - - - - - - - - - - - - - - -
+
+def distance_between_two_points(point1, point2):
+    x_distance = abs(point1[0] - point2[0])
+    y_distance = abs(point1[1] - point2[1])
+    return x_distance + y_distance
+
+def coord_check(str_wh, cols, x, y):
+    try:
+        return str_wh[((y * cols + y) + x)]
+    except:
+        return ' '
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+class WarehouseOuterCells(search.Problem):
+    first_time = True
 
+    def __init__(self, warehouse):
+        self.initial = warehouse.walls[0]
+        self.goal = (warehouse.walls[0][0], warehouse.walls[0][1]+1)
+        self.warehouse = warehouse
+        self.whcols = warehouse.ncols
+        self.str_wh = str(warehouse)
+
+    def actions(self, state):
+        L = []
+        directions = ['Right', 'Left', 'Up', 'Down']
+        for direction in directions:
+            if direction == 'Right':
+                if(coord_check(self.str_wh, self.whcols, state[0]+1, state[1]) == '#'):
+                    L.append(direction)
+            if direction == 'Left':
+                if(coord_check(self.str_wh, self.whcols, state[0]-1, state[1]) == '#'):
+                    if (state[0]-1 >= 0):
+                            L.append(direction)     
+            if direction == 'Up':
+                if(coord_check(self.str_wh, self.whcols, state[0], state[1]-1) == '#'):
+                    if (state[1]-1 >= 0):
+                        L.append(direction)        
+            if direction == 'Down':
+                if(coord_check(self.str_wh, self.whcols, state[0], state[1]+1) == '#'):
+                    if (not self.first_time):
+                        L.append(direction) 
+                    else:
+                        self.first_time = False  
+        return L
+
+    def result(self, state, action):
+        next_state = list(state).copy()
+        if action == 'Right':
+            next_state =  (next_state[0]+1, next_state[1])
+        elif action == 'Left':
+            next_state =  (next_state[0]-1, next_state[1])
+        elif action == 'Up':
+            next_state =  (next_state[0], next_state[1]-1)
+        elif action == 'Down':
+            next_state =  (next_state[0], next_state[1]+1)
+        return tuple(next_state)
+
+    def goal_test(self, state):
+        return state == self.goal
+
+    def outside_walls(self, goal_node):
+        if (goal_node != None):
+            path = goal_node.path()
+            outside_walls = []
+            for node in path:
+                if node.action is not None:
+                    outside_walls.append(node.state)
+            outside_walls.append(self.initial)
+            return outside_walls
+
+
+    
 def taboo_cells(warehouse):
     '''  
     Identify the taboo cells of a warehouse. A cell inside a warehouse is 
@@ -60,9 +131,16 @@ def taboo_cells(warehouse):
        The returned string should NOT have marks for the worker, the targets,
        and the boxes.  
     '''
-    corner_cells = [] 
+    outside_walls = []
     taboo_cells = []
-    inside_warehouse_coords = []
+    problem = WarehouseOuterCells(warehouse)
+    solution = search.breadth_first_graph_search(problem)
+    
+    #if goal is found print solution
+    if solution != None:
+        outside_walls = sorted(problem.outside_walls(solution))
+    corner_cells = []
+
     col_in_warehouse = False
     row_in_warehouse = False
     # gets all coordinates for the whole warehouse
@@ -70,40 +148,39 @@ def taboo_cells(warehouse):
         for row in range(warehouse.nrows):
             #for each line go from left to right wall to wall, anything that was not hit isnt inside
             #if inside wall then true(ie you start wall 1 you inside until you hit wall 2 and you inside again when you hit wall 3)
-            if ((col, row) in warehouse.walls):
-                if ((col, row - 1) not in warehouse.walls):
+            if ((col, row) in outside_walls):
+                if ((col, row - 1) not in outside_walls):
                     row_in_warehouse = not row_in_warehouse
-            if((col, row) in warehouse.walls):
-                if ((col - 1, row) in warehouse.walls):
+            if((col, row) in outside_walls):
+                if ((col - 1, row) in outside_walls):
                     col_in_warehouse = not col_in_warehouse
             #gets the coordinates of the empty spaces
-            if (((col, row) not in warehouse.walls) and 
+            if (((col, row) not in outside_walls) and 
                 (col_in_warehouse and row_in_warehouse)):
-                inside_warehouse_coords.append((col, row))
                 #checks if there are two adjacent walls
                 #if there is then it will be a taboo cell
-                if ((col+1, row) in warehouse.walls) and ((col, row+1) in warehouse.walls):
+                if ((col+1, row) in outside_walls) and ((col, row+1) in outside_walls):
                     corner_cells.append((col, row))
-                elif ((col-1, row) in warehouse.walls) and ((col, row+1) in warehouse.walls):
+                elif ((col-1, row) in outside_walls) and ((col, row+1) in outside_walls):
                     corner_cells.append((col, row))
-                elif ((col-1, row) in warehouse.walls) and ((col, row-1) in warehouse.walls):
+                elif ((col-1, row) in outside_walls) and ((col, row-1) in outside_walls):
                     corner_cells.append((col, row))
-                elif ((col+1, row) in warehouse.walls) and ((col, row-1) in warehouse.walls):
+                elif ((col+1, row) in outside_walls) and ((col, row-1) in outside_walls):
                     corner_cells.append((col, row))
         row_in_warehouse = False
         col_in_warehouse = False
-    warehouse.inside_warehouse_coords = inside_warehouse_coords
-    temp_taboo_cells = []
-    
-    #get rid of outside corners
-    #check if you ride along corners there are walls next to it
+
     for corner in corner_cells:
-        for col in range(warehouse.ncols-1):# -1 because there are walls
-            if ((corner[0] + col, corner[1]) not in warehouse.walls):
-                if (((corner[0] + col, corner[1] + 1) in warehouse.walls) or 
-                    ((corner[0] + col, corner[1] - 1) in warehouse.walls)):
-                    if (corner[0] + col, corner[1]) not in warehouse.targets:
-                        temp_taboo_cells.append((corner[0] + col, corner[1]))
+        if corner not in warehouse.targets:
+            taboo_cells.append(corner)
+
+    temp_taboo_cells = []
+    for corner in corner_cells:
+        for col in range(warehouse.ncols-2):
+            if ((corner[0]+col, corner[1]) not in outside_walls):
+                if (((corner[0]+col, corner[1]+1) in outside_walls) or ((corner[0]+col, corner[1]-1) in outside_walls)):
+                    if not (corner[0]+col, corner[1]) in warehouse.targets:
+                        temp_taboo_cells.append((corner[0]+col, corner[1]))
                     else:
                         temp_taboo_cells = []
                         break
@@ -113,27 +190,24 @@ def taboo_cells(warehouse):
             else:
                 break
         taboo_cells.extend(temp_taboo_cells)
-        for row in range(warehouse.nrows-1):
-            if ((corner[0], corner[1] + row) not in warehouse.walls):
-                if (((corner[0] + 1, corner[1] + row) in warehouse.walls) or 
-                    ((corner[0] - 1, corner[1] + row) in warehouse.walls)):
-                    if (corner[0], corner[1] + row) not in warehouse.targets:
-                        temp_taboo_cells.append((corner[0], corner[1] + row))
+        for row in range(warehouse.nrows-2):
+            if ((corner[0], corner[1]+row) not in outside_walls):
+                if (((corner[0] + 1, corner[1]+row) in outside_walls) or ((corner[0]-1, corner[1]+row) in outside_walls)):
+                    if not (corner[0], corner[1]+row) in warehouse.targets:
+                        temp_taboo_cells.append((corner[0], corner[1]+row))
                     else:
                         temp_taboo_cells = []
-                    break
+                        break
                 else:
                     temp_taboo_cells = []
                     break
             else:
                 break
         taboo_cells.extend(temp_taboo_cells)
-
     warehouse.taboo_cells = taboo_cells
-
-    #took this from sokoban.py in the __str__ function
-
-    X,Y = zip(*warehouse.walls) 
+    
+    #from sokoban.py
+    X,Y = zip(*warehouse.walls) # pythonic version of the above
     x_size, y_size = 1+max(X), 1+max(Y)
     vis = [[" "] * x_size for y in range(y_size)]
 
@@ -142,16 +216,6 @@ def taboo_cells(warehouse):
     for (x,y) in taboo_cells:
         vis[y][x] = "X"
     return "\n".join(["".join(line) for line in vis])
-
-
-    
-    
-# - - - - - - - - - - My Functions - - - - - - - - - - - - - - - - - - -
-
-def distance_between_two_points(point1, point2):
-    x_distance = abs(point1[0] - point2[0])
-    y_distance = abs(point1[1] - point2[1])
-    return x_distance + y_distance
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 class SokobanPuzzle(search.Problem):
@@ -672,10 +736,10 @@ wh.load_warehouse("./warehouses/warehouse_07.txt")
 #taboo_cells(wh)
 
 puzzle = SokobanPuzzle(wh)
-print(taboo_cells(wh))
-print(puzzle.taboo_cells)
+#print(taboo_cells(wh))
+#print(puzzle.taboo_cells)
 #print(check_elem_action_seq(wh,["Up",'Right','Up','Up','Left','Left','Up']))
-#print(solve_sokoban_elem(wh))
+print(solve_sokoban_elem(wh))
 #print(solve_sokoban_macro(wh))
 #print(wh)
 #print(solve_weighted_sokoban_elem(wh, [1,2,3]))
